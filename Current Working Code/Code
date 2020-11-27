@@ -1,0 +1,38 @@
+      ## Hi guys! I'll use this space to determine what I've done
+      ## Feel free to change things up (but comment if you do so please - so we can all make sense of the changes)
+      ## or ask questions about bits of code (again, via commenting)
+      
+            ## ALEX'S CODE START 
+                  ## {
+                  
+    ## Reading the data        
+setwd("D://R-4.0.2//ExcelWorks")
+data<- read.csv(file = "MAC.csv", header = T) 
+head(data, 50)
+    ## USE THIS: We don't need 1st column - see time analysis discussion on discord
+          ## Our data is sampled => Can't do reliable time analysis
+data<- data[, -1]
+# d <- data[data$service == "http", ]
+
+    ## How many NA's in duration
+c<- 0
+for( i in 1:nrow(data)) {
+	if(is.na(data$duration[i])) 
+	c <- c+1 }
+	}
+  print(c)
+  
+  c*100/nrow(data) ## 82.76% of the durations are missing... weird
+
+    ## Analysis of ICMP protocols
+dOTH <- data[data$conn_state=="OTH", ]
+table(data$proto)
+table(dOTH$proto)	## OTH contains ALL icmp protocols
+
+t<- table(data$conn_state)
+pie(t, labels = names(t))	## OTH is just a small fraction of the states
+                          ## Most prevelant states are 'REJ' and 'S0' (Server zero?)
+                  ##  Why does OTH have all ICMP, although it's so small otherwise? -- ...
+                  
+          ## ALEX CODE END
+              ## }
