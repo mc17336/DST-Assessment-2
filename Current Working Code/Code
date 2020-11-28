@@ -33,6 +33,57 @@ t<- table(data$conn_state)
 pie(t, labels = names(t))	## OTH is just a small fraction of the states
                           ## Most prevelant states are 'REJ' and 'S0' (Server zero?)
                   ##  Why does OTH have all ICMP, although it's so small otherwise? -- ...
+		  
+## For reasons of inability to do time analysis (due to sampling!) we can also remove col1
+	## so we can decrease the complexity of our ulterior analysis
+data <- data[, -1]
+
+	## Handling the Missing Values (NAs)
+
+## This function computes the number of missing values in a dataframe,
+## for the numerical/int values only!
+## Its default setting is for our dataset.
+
+MissVal <- function(x=data) {
+	if(class(x)!="data.frame") {
+		stop("Invalid input! Please select a dataframe.")
+		}
+	c<- vector(length=ncol(x))
+	c<- c(0, times = ncol(x))
+	for(j in 1:ncol(x)) {
+		for(i in 1:nrow(x)) {
+			if(is.na(x[i,j])) {
+				c[j] <- c[j] +1 }
+				}
+			}
+	c	}
+	
+	## Turns out the entire local_orig is missing 
+	## We'll keep that in mind, but remove it since there's not much we can do about it
+	## or much useful analysis to be had
+	
+data<- data[, -12]
+
+	## We assume that all the 187824 missing values occuring are related.
+	## The easiest way to test this is:
+dataM <- data[is.na(data$duration), ]
+unique(dataM[,9])
+unique(dataM[,10])
+## They are indeed. dataM contains all the missing values and those only.
+	## Are the values otherwise corelated, apart from their missingness?
+
+c1<- cor(na.omit(data$duration), na.omit(data$orig_bytes))
+c2<- cor(na.omit(data$duration), na.omit(data$resp_bytes))
+c3<- cor(na.omit(data$orig_bytes), na.omit(data$resp_bytes))	## pretty weird results - maybe I did smth wrong?
+k1<- na.omit(data$duration)
+k2<- na.omit(data$orig_bytes)
+k3<- na.omit(data$resp_bytes)
+
+## The data with no missingness (Apart from server - which isn't numerical)
+dataW <- data[!(is.na(data$duration)), ]
+	## Let's test we extracted it properly
+identical(c(0, times = ncol(dataW)), MissVal(dataW))	## Should be TRUE
+
                   
           ## ALEX CODE END
               ## }
