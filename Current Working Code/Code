@@ -85,7 +85,7 @@ k3<- na.omit(data$resp_bytes)
 ## The data with no missingness (Apart from server - which isn't numerical)
 dataW <- data[!(is.na(data$duration)), ]
 	## Let's test we extracted it properly
-identical(c(0, times = ncol(dataW)), MissVal(dataW))	## Should be TRUE
+identical(rep(0, times = ncol(dataW)), MissVal(dataW))	## Should be TRUE
 
                   
           ## ALEX CODE END
