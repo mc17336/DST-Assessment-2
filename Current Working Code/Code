@@ -81,6 +81,9 @@ c3<- cor(na.omit(data$orig_bytes), na.omit(data$resp_bytes))	## pretty weird res
 k1<- na.omit(data$duration)
 k2<- na.omit(data$orig_bytes)
 k3<- na.omit(data$resp_bytes)
+c1
+c2
+c3
 
 ## The data with no missingness (Apart from server - which isn't numerical)
 dataW <- data[!(is.na(data$duration)), ]
