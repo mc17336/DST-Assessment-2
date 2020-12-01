@@ -1,0 +1,62 @@
+---
+title: "Assessment 2 - Matt"
+output: html_notebook
+---
+# Overview
+In this assessment we aim to use the MACCDC conn data to perform data analysis and modelling. We first must import the data.
+
+```{r}
+mydata <- read.csv("MAC.csv")
+mydata <- data.frame(mydata)
+```
+
+```{r}
+mydata
+```
+We first want to look for missing data. Service, duration, orig_bytes, resp_bytes and local_orig all see to have missing data in them so we will see what percentage.
+
+```{r}
+mtab0=data.frame(
+    missingduration=is.na(mydata[,"duration"]),
+    proto=mydata[,"proto"])
+mtab0=table(mtab0)
+(apply(mtab0,2,function(x)x/sum(x)))
+
+mtab1=data.frame(
+    missing_orig_bytes=is.na(mydata[,"orig_bytes"]),
+    proto=mydata[,"proto"])
+mtab1=table(mtab1)
+(apply(mtab1,2,function(x)x/sum(x)))
+
+mtab2=data.frame(
+    missing_resp_bytes=is.na(mydata[,"resp_bytes"]),
+    proto=mydata[,"proto"])
+mtab2=table(mtab2)
+(apply(mtab2,2,function(x)x/sum(x)))
+
+mtab3=data.frame(
+    missing_local_orig=is.na(mydata[,"local_orig"]),
+    proto=mydata[,"proto"])
+mtab3=table(mtab3)
+(apply(mtab3,2,function(x)x/sum(x)))
+```
+Thus we are missing the local_orig feature for every data point in the data set. We may then consider dropping this entire column as it serves no use to us and we cannot impute the data without prior knowledge of the data set and what it should look like. The duration, orig_bytes and resp_bytes all appear to be missing exactly the same data - on further analysis, we see that whenever one is missing, all three are missing. 
+
+Some initial data cleansing will come from removing the X column and the ts column. The X column is produced by the sampling and since we have a random sample of the data, the ts provides no real information on the data.
+
+```{r}
+unique_uid <- mydata[!duplicated(mydata[,c('uid')]),]
+unique_uid
+```
+Thus all our uid's are unique and therefore wont provide us with any extra information either since they will be uncorrelated with the rest of the data. This is the only column with this trait, and all other columns have values which occur more than once so we can drop the uid column too.
+
+```{r}
+drop_columns <- c("X","ts","local_orig","uid")
+mydata <- mydata[, !names(mydata) %in% drop_columns]
+```
+
+```{r}
+head(mydata)
+```
+
+So we have removed the columns that didn't provide us with any extra information.
