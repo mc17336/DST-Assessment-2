@@ -1,0 +1,290 @@
+                              ## Hi! This is my bit of code
+                              ## The "data" I load is the subset of data we agreed on, making up for 1% of the original dataset.
+                              ## Make sure to read comments before running code pretty please!
+                              
+      
+      ###### EXPLORATORY DATA ANALYSIS [EDA] ######
+      
+setwd("D://R-4.0.2//ExcelWorks")
+data<- read.csv(file = "MAC.csv", header = T)
+head(data, 50)
+data<- data[, -1]
+d <- data[data$service == "http", ]
+
+
+c<- 0
+for( i in 1:nrow(data)) {
+	if(is.na(data$duration[i])) 
+	c <- c+1 }
+c
+c*100/nrow(data)    ## Not useful
+
+dOTH <- data[data$conn_state=="OTH", ]
+table(data$proto)
+table(dOTH$proto)	            ## OTH contains all icmp protocols - weird
+t<- table(data$conn_state)
+pie(t, labels = names(t))	
+
+	## For reasons of inability to do time analysis (due to sampling!) we can also remove col1
+	## so we can decrease the complexity of our ulterior analysis
+data <- data[, -1]
+
+    ## This function computes the NAs in every feature (as long as they're num/int)
+MissVal <- function(x=data) {
+	if(class(x)!="data.frame") {
+		stop("Invalid input! Please select a dataframe.")
+		}
+	c<- vector(length=ncol(x))
+	c<- as.vector(rep(0, times = ncol(x)))
+	for(j in 1:ncol(x)) {
+		for(i in 1:nrow(x)) {
+			if(is.na(x[i,j])) {
+				c[j] <- c[j] +1 }
+				}
+			}
+	c	}
+MissVal(data)
+	## Turns out the entire local_orig is missing 
+	## We'll keep that in mind, but remove it since there's not much we can do about it
+	## or much useful analysis to be had
+data<- data[, -12]
+
+## We assume that all the 187824 missing values occur correlatedly
+	## The easiest way to test this is:
+dataM <- data[is.na(data$duration), ]
+unique(dataM[,9])
+unique(dataM[,10])
+	## Are the values otherwise corelated, apart from their missingness?
+
+c1<- cor(na.omit(data$duration), na.omit(data$orig_bytes))
+c2<- cor(na.omit(data$duration), na.omit(data$resp_bytes))
+c3<- cor(na.omit(data$orig_bytes), na.omit(data$resp_bytes))
+k1<- na.omit(data$duration)
+k2<- na.omit(data$orig_bytes)
+k3<- na.omit(data$resp_bytes)
+c1
+c2
+c3
+
+dataW <- data[!(is.na(data$duration)), ]
+	## Let's test we extracted it properly
+identical(rep(0, times = ncol(dataW)), MissVal(dataW))	## Should be TRUE
+
+	## This is the distribution of missigness across the 'duration' feature in our dataset
+	## We expect a similar result (or at least somehow correlated) upon sampling a different set
+nrow(dataM)/nrow(data)
+
+
+      ######## IS OUR SAMPLED DATA "ACCURATE"? #########
+      
+## I don't advise running this. Would take a while - as you need to load the WHOLE dataset; the big one.
+set.seed(2)	## For replicability
+data2<- tempfile()
+setwd("D://R-4.0.2//ExcelWorks")
+# download.file(url = "http://www.secrepo.com/maccdc2012/conn.log.gz",destfile = "data")
+data2<- read.table(file = "data", header = T)
+ran <- sample(1:nrow(data), 0.05*nrow(data))
+Newdata <- data2[ran, ]
+colnames(Newdata) <- c("ts", "uid", "id.orig_h", "id.orig_p", "id.resp_h", "id.resp_p", "proto", "service", 
+"duration", "orig_bytes", "resp_bytes", "conn_state", "local_orig", "missed_bytes", "history", "orig_pkts", 
+"orig_ip_bytes", "resp_pkts", "resp_ip_bytes", "tunnel_parents")
+Newdata<- Newdata[, -ncol(Newdata)]
+
+N2data <- Newdata
+for(i in c(9,10,11,13)) { N2data[,i] <- as.numeric(Newdata[,i]) }
+head(N2data)
+length(N2data$duration[N2data$duration=="NA"])/nrow(data)
+
+
+      ######## DEALING WITH MISSING DATA [NAs] ##########
+
+## Solution 1: [Median Imputation]
+mm <- vector(length = 3)
+for(i in 1:3) {
+mm[i]<- median(data[, i+7], na.rm = TRUE) }
+
+data.bad <- data
+data.bad$duration<- replace(data.bad$duration,
+                   is.na(data.bad$duration),
+                   mm[1])
+data.bad$orig_bytes<- replace(data.bad$orig_bytes,
+                   is.na(data.bad$orig_bytes),
+                   mm[2])
+data.bad$resp_bytes<- replace(data.bad$resp_bytes,
+                   is.na(data.bad$resp_bytes),
+                   mm[3])
+head(data.bad)
+
+
+## Solution 2: [KNN]
+miss.me <- vector(length = nrow(data))
+miss.me <- rep(0, times = nrow(data))
+for(i in 1:nrow(data)) {
+	if(is.na(data$duration[i])) { miss.me[i] <- 1 }
+	}
+str(data)
+data.good <- as.data.frame(cbind(id.orig_p = data$id.orig_p, id.resp_p = data$id.resp_p, 
+orig_pkts = data$orig_pkts, orig_ip_bytes = data$orig_ip_bytes, 
+resp_pkts = data$resp_pkts, resp_ip_bytes = data$resp_ip_bytes))
+data.good<- cbind(data.good, miss.me)
+head(data.good)
+str(data.good) # Should be only ints and nums
+
+for(i in 1:ncol(data.good)) { data.good[,i] <- as.numeric(data.good[,i]) }
+str(data.good)		## All should be nums now
+# sum(data.good$miss.me)/nrow(data.good) ## 82.7% missing
+
+	## We'll do 10-fold CV and then apply knn, training on 90%
+dg <- data.good
+ran <- sample(1:nrow(dg), 0.9 * nrow(dg))
+nor <-function(x) { (x -min(x))/(max(x)-min(x))   }
+dg_norm <- as.data.frame(lapply(dg, nor))
+	# head(dg_norm)
+
+dg_train <- dg_norm[ran,] 	## extract training set
+dg_test <- dg_norm[-ran,]   	## extract testing set
+dg_target_cat <- dg[ran, ncol(dg)]
+dg_test_cat <- dg[-ran, ncol(dg)]
+
+library(class)
+pr <- knn(dg_train,dg_test,cl=dg_target_cat,k=10)
+tab <- table(pr,dg_test_cat)
+accuracy <- function(x){sum(diag(x)/(sum(rowSums(x)))) * 100}
+accuracy(tab)
+	## Tested for values k=1,10,13 and all resulted in a 100% accurate prediction.
+	
+
+	## Conclusions: We can safely replace the missing columns with identifiers of their missingness while
+	## preserving knowledge of their behaviour. KNN testing proves that we can accurately predict when the 
+	## data will be missing based on other features of our data. 
+
+	## In terms of computational complexity:
+system.time(knn(dg_train,dg_test,cl=dg_target_cat,k=10))   ## 71.64 s
+system.time(knn(dg_train,dg_test,cl=dg_target_cat,k=1))	   ## 86.17 s 	
+system.time(knn(dg_train,dg_test,cl=dg_target_cat,k=13))   ## 69.94 s
+	## The elapsed time wouldn't justify opting for the particular value of 1 - all options are fairly quick
+  
+          ######### K-MEANS CLUSTERING ########
+    
+ ## Attempt 1: The whole data as initially:
+
+	# install.packages("Matrix")
+	# install.packages("irlba")
+	# install.packages("Rtsne")
+	library(Matrix)
+	library(irlba)
+	library(Rtsne)
+So1 <- tapply(data$id.orig_h, data$id.orig_h)
+De1 <- tapply(data$id.resp_h, data$id.resp_h)
+Est <- as.matrix(cbind(So1, De1))
+M<- sparseMatrix(i=Est[,1], j=Est[,2])
+
+d <- 17		## Number of dimensions
+SVD <- irlba(M, nv=d)
+Y <- SVD$v %*% diag(sqrt(SVD$d))	
+X = SVD$u %*% diag(sqrt(SVD$d))		## Embedding for the source computers	
+
+tsne_out.1 <- Rtsne(Y, check_duplicates=FALSE)
+# png("Cluster_attempt_1.png")
+plot(tsne_out.1$Y, pch=16, cex=.3, ann=FALSE, main = "Basic cluster")
+# dev.off()
+
+## Attempt 2: The data.bad - with mean imputation replacing NAs:
+
+So1 <- tapply(data.bad$id.orig_h, data.bad$id.orig_h)
+De1 <- tapply(data.bad$id.resp_h, data.bad$id.resp_h)
+Est <- as.matrix(cbind(So1, De1))
+M<- sparseMatrix(i=Est[,1], j=Est[,2])
+
+d <- 17		## Number of dimensions
+SVD <- irlba(M, nv=d)
+Y <- SVD$v %*% diag(sqrt(SVD$d))	
+X = SVD$u %*% diag(sqrt(SVD$d))		## Embedding for the source computers	
+
+tsne_out.2 <- Rtsne(Y, check_duplicates=FALSE)
+# png("Cluster_attempt_2.png")
+plot(tsne_out.2$Y, pch=16, cex=.3, ann=FALSE, main = "Mean imputed cluster")
+# dev.off()
+
+## Attempt 3: The data with NAs replaced by binary counterpart
+newdata<- data
+newdata<- newdata[, -(8:10)]
+newdata<- cbind(newdata, miss.me)
+dim(newdata) # 17-3+1 = 15 features
+
+So1 <- tapply(newdata$id.orig_h, newdata$id.orig_h)
+De1 <- tapply(newdata$id.resp_h, newdata$id.resp_h)
+Est <- as.matrix(cbind(So1, De1))
+M<- sparseMatrix(i=Est[,1], j=Est[,2])
+
+d <- 15		## Number of dimensions
+SVD <- irlba(M, nv=d)
+Y <- SVD$v %*% diag(sqrt(SVD$d))	
+X = SVD$u %*% diag(sqrt(SVD$d))		## Embedding for the source computers	
+
+tsne_out.3 <- Rtsne(Y, check_duplicates=FALSE)
+# png("Cluster_attempt_3.png")
+plot(tsne_out.3$Y, pch=16, cex=.3, ann=FALSE, main = "NA removed cluster")
+# dev.off()
+
+    ## A plot determining all 3 variations of the (almost) same clustering
+    ## While no. 1 and no. 2 are mostly indistibguishable, except for the arbitrary starting point of the cluster;
+    ## no. 3 has fewer dimensions to work with. Due to our KNN analysis, however, we knew to expect no. 3 to have very
+    ## similar results to the previous clusterings nonetheless:
+# png("Three_clusters_points.png")
+op<- par(mfrow=c(3,1))
+base::plot(tsne_out.1$Y, pch=16, cex=.3, ann = TRUE,
+xlab="Origin", ylab = "Response", main = "Basic cluster")
+base::plot(tsne_out.2$Y, pch=16, cex=.3, ann = TRUE,
+xlab="Origin", ylab = "Response", main = "Mean imputed cluster")
+base::plot(tsne_out.3$Y, pch=16, cex=.3, ann = TRUE,
+xlab="Origin", ylab = "Response", main = "NA removed cluster")
+par(op)
+# dev.off()
+
+# png("All_clusters.png")
+op1<- par(mfrow=c(3,3))
+base::plot(tsne_out.1$Y, pch=16, cex=.3, ann = TRUE,
+xlab="Origin", ylab = "Response", main = "Basic cluster")
+base::plot(tsne_out.1$Y, pch=16, cex=.3, ann = TRUE, type="b",
+xlab="Origin", ylab = "Response", main = "Basic cluster[Graph]")
+base::plot(tsne_out.1$Y, pch=16, cex=.3, ann = TRUE, type="b", col= c("grey", "red"),
+xlab="Origin", ylab = "Response", main = "Basic cluster[Both]")
+
+base::plot(tsne_out.2$Y, pch=16, cex=.3, ann = TRUE,
+xlab="Origin", ylab = "Response", main = "Mean imputed cluster")
+base::plot(tsne_out.2$Y, pch=16, cex=.3, ann = TRUE, type="b",
+xlab="Origin", ylab = "Response", main = "Mean imputed cluster[Graph]")
+base::plot(tsne_out.2$Y, pch=16, cex=.3, ann = TRUE, type="b", col=c("grey", "red"),
+xlab="Origin", ylab = "Response", main = "Mean imputed cluster[Both]")
+
+base::plot(tsne_out.3$Y, pch=16, cex=.3, ann = TRUE,
+xlab="Origin", ylab = "Response", main = "NA removed cluster")
+base::plot(tsne_out.3$Y, pch=16, cex=.3, ann = TRUE, type="b",
+xlab="Origin", ylab = "Response", main = "NA removed cluster[Graph]")
+base::plot(tsne_out.3$Y, pch=16, cex=.3, ann = TRUE, type="b", col=c("grey", "red"),
+xlab="Origin", ylab = "Response", main = "NA removed cluster[Both]")
+par(op1)
+# dev.off()
+
+
+                            ## The following result is as hard to interpret as it is interesting
+                            ## But it looks amazing. I want people to run it - but it might take up to 10-12 min. 
+                            ## I'll update the elapsed time it took me once I run it again:
+                            
+       ## What if we used parents instead of hosts - 5000 connections instead of 180ish!!
+ 
+So1 <- tapply(data.good$id.orig_p, data.good$id.orig_p)
+De1 <- tapply(data.good$id.resp_p, data.good$id.resp_p)
+Est <- as.matrix(cbind(So1, De1))
+M<- sparseMatrix(i=Est[,1], j=Est[,2])
+
+d <- 7		## Number of dimensions
+SVD <- irlba(M, nv=d)
+Y <- SVD$v %*% diag(sqrt(SVD$d))	
+X = SVD$u %*% diag(sqrt(SVD$d))		## Embedding for the source computers	
+
+tsne_out <- Rtsne(Y, check_duplicates=FALSE)
+# png("Cluster_parents.png")
+plot(tsne_out$Y, pch=16, cex=.3, ann=FALSE)
+# dev.off()
