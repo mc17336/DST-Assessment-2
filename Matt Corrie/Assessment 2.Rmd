@@ -13,7 +13,7 @@ mydata <- data.frame(mydata)
 ```{r}
 mydata
 ```
-We first want to look for missing data. Service, duration, orig_bytes, resp_bytes and local_orig all see to have missing data in them so we will see what percentage.
+We first want to look for missing data. Service, duration, orig_bytes, resp_bytes and local_orig all seem to have missing data in them so we will see what percentage.
 
 ```{r}
 mtab0=data.frame(
@@ -202,9 +202,15 @@ dev.off()
 
 References:
 1. [Data from SecRepo](https://www.secrepo.com)
+
 2. [Converting categorical variables](https://stackoverflow.com/questions/47922184/convert-categorical-variables-to-numeric-in-r/47923178)
+
 3. [Adding columns to data frames](https://discuss.analyticsvidhya.com/t/how-to-add-a-column-to-a-data-frame-in-r/3278)
+
 4. [Finding Unique Values](https://stackoverflow.com/questions/41906878/r-number-of-unique-values-in-a-column-of-data-frame)
+
 5. [DBSCAN on flowers](https://www.geeksforgeeks.org/dbscan-clustering-in-r-programming/)
+
 6. [Saving Plots](http://www.sthda.com/english/wiki/creating-and-saving-graphs-r-base-graphs)
+
 7. [DBSCAN Parameter Estimation](https://en.wikipedia.org/wiki/DBSCAN#Parameter_estimation)
