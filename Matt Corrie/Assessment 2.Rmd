@@ -1,6 +1,7 @@
 ---
 title: "Assessment 2 - Matt"
-output: html_notebook
+output:
+  html_notebook: default
 ---
 # Overview
 In this assessment we aim to use the MACCDC conn data to perform data analysis and modelling. We first must import the data.
@@ -171,12 +172,14 @@ dbscanres
 ```{r}
 jpeg("Assessment2 DBSCAN Clustering.jpg")
 
-for(k in 1:5){
-    for(l in k+1:5){
-    plot(dg_train.svd$u[,k],
-         dg_train.svd$u[,l],xlab="",
-         ylab="",
-         col=c("#66666666",rainbow(41))[dbscanres$cluster+1],pch=19,cex=0.5)
+for (k in 1:5){
+    a = seq(k,5)
+    for (l in a){
+        if(k==l){next}
+        plot(dg_train.svd$u[,k],
+            dg_train.svd$u[,l],xlab="",
+            ylab="",
+            col=c("#66666666",rainbow(41))[dbscanres$cluster+1],pch=19,cex=0.5)
     par(new=TRUE)
     }
 }
@@ -185,22 +188,23 @@ dev.off()
 
 ```{r}
 jpeg("Assessment2 DBSCAN Clustering Eigenvector split.jpg")
-
-for(k in 1:4){
-    for(l in k+1:5){
-    plot(dg_train.svd$u[,k],
-         dg_train.svd$u[,l],xlab=i,
-         ylab=j,
-         col=c("#66666666",rainbow(41))[dbscanres$cluster+1],pch=19,cex=0.5)
-    par(mfrow=c(3,4))
+op <- par(mfrow=c(3,4))
+for (k in 1:5){
+    a = seq(k,5)
+    for (l in a){
+        if(k==l){next}
+        plot(dg_train.svd$u[,k],
+            dg_train.svd$u[,l],xlab=k,
+            ylab=l,
+            col=c("#66666666",rainbow(41))[dbscanres$cluster+1],pch=19,cex=0.5)
     }
 }
+par(op)
 dev.off()
 ```
 
-
-
 References:
+
 1. [Data from SecRepo](https://www.secrepo.com)
 
 2. [Converting categorical variables](https://stackoverflow.com/questions/47922184/convert-categorical-variables-to-numeric-in-r/47923178)
@@ -214,3 +218,5 @@ References:
 6. [Saving Plots](http://www.sthda.com/english/wiki/creating-and-saving-graphs-r-base-graphs)
 
 7. [DBSCAN Parameter Estimation](https://en.wikipedia.org/wiki/DBSCAN#Parameter_estimation)
+
+8. [Finding the knee in kNNDist](https://www.rdocumentation.org/packages/dbscan/versions/1.1-5/topics/kNNdist)
