@@ -59,4 +59,152 @@ mydata <- mydata[, !names(mydata) %in% drop_columns]
 head(mydata)
 ```
 
-So we have removed the columns that didn't provide us with any extra information.
+So we have removed the columns that didn't provide us with any extra information. We will now extract the data we will use for DBSCAN to create clusters. The following code is pulled from Alex's workbook and allows us to pull out 7 of the features to use for DBSCAN and ensures all elements are numeric.
+
+```{r}
+miss.me <- vector(length = nrow(mydata))
+miss.me <- rep(0, times = nrow(mydata))
+for(i in 1:nrow(mydata)) {
+	if(is.na(mydata$duration[i])) { miss.me[i] <- 1 }
+	}
+str(mydata)
+mydata.good <- as.data.frame(cbind(id.orig_p = mydata$id.orig_p, id.resp_p = mydata$id.resp_p, 
+orig_pkts = mydata$orig_pkts, orig_ip_bytes = mydata$orig_ip_bytes, 
+resp_pkts = mydata$resp_pkts, resp_ip_bytes = mydata$resp_ip_bytes))
+mydata.good<- cbind(mydata.good, miss.me)
+head(mydata.good)
+str(mydata.good) # Should be only ints and nums
+
+for(i in 1:ncol(mydata.good)) { mydata.good[,i] <- as.numeric(mydata.good[,i]) }
+str(mydata.good)		## All should be nums now
+# sum(mydata.good$miss.me)/nrow(mydata.good) ## 82.7% missing
+
+```
+
+I dont want to drop any data that may be important so I'll also use the protocol, connection state and history features in my analysis.
+```{r}
+proto <- as.factor(c(mydata$proto))
+proto <- unclass(proto)
+
+conn_state <- as.factor(c(mydata$conn_state))
+conn_state <- unclass(conn_state)
+
+history <- as.factor(c(mydata$history))
+history <- unclass(history)
+
+mydata.good$proto <- proto
+mydata.good$conn_state <- conn_state
+mydata.good$history <- history
+
+mydata.good
+```
+
+```{r}
+	## We'll do 10-fold CV and then apply DBSCAN, training on 90%
+dg <- mydata.good
+ran <- sample(1:nrow(dg), 0.9 * nrow(dg))
+nor <-function(x) { (x -min(x))/(max(x)-min(x))   }
+dg_norm <- as.data.frame(lapply(dg, nor))
+	# head(dg_norm)
+
+dg_train <- dg_norm[ran,] 	## extract training set
+dg_test <- dg_norm[-ran,]   	## extract testing set
+dg_target_cat <- dg[ran, ncol(dg)]
+dg_test_cat <- dg[-ran, ncol(dg)]
+```
+
+Now we can look at running DBSCAN on our data. We first need to perform PCA to figure out how many principle components to use in DBSCAN.
+
+```{r}
+library("dbscan")
+```
+
+```{r}
+dg_train.svd <- svd(dg_train)
+```
+
+```{r}
+plot(dg_train.svd$d,xlab="Eigenvalue index",ylab="Eigenvalue",log="y")
+plot(dg_train.svd$d,xlab="Eigenvalue index",ylab="Eigenvalue")
+```
+Plotting with a log y-axis and a normal y-axis give strikingly different results. The first eigenvector explains most of the variance and the 5 after that seeming explain almost the same amount of variance between them as the first one. I don't think using just the first eigenvalue would provide that much insight and therefore will use 6 of them (this is still reducing dimensionality by almost half).
+
+```{r}
+npcs = 6
+```
+
+We now plot the PCA to visualise the clusters formed here. We're not plotting according to any categorical data i.e. normal vs non-normal so we may not get that much information from this.
+
+```{r}
+i=1;j=2
+plot(dg_train.svd$u[,i],
+     dg_train.svd$u[,j],type="p",
+     col="#33333311",pch=16,cex=1)
+```
+
+Eps specifies how close the points should be to each other to form a cluster. If the distance is less than eps, they are considered neighbours. We find this number by finding the 'knee' in the plot below. I have chosen to use 7 neighbours here.
+
+```{r}
+test=kNNdist(dg_train.svd$u[,1:npcs], k = 7,all=TRUE)
+testmin=apply(test,1,min)
+```
+
+```{r}
+plot(sort(testmin[testmin>1e-8]),log="y")
+threshholds= c(0.01,0.001,0.0001,0.00001,0.000001)
+abline(h=c(0.01,0.001,0.0001,0.00001,0.000001))
+abline(h=0.0001, col="red")
+```
+
+So we choose h=0.0001 as our limit since this allows us to capture most of the information here. We also need to define our minimum number of points to form a cluster. The recommendation is to use minPts = 2*dim for large data sets to ensure we find significant clusters and avoid noise so this is what we shall choose.
+
+Now we finally perform DBSCAN.
+
+```{r}
+dbscanres = dbscan(dg_train.svd$u[,1:6],eps = 0.0001,minPts = 20)
+```
+
+```{r}
+dbscanres
+```
+
+```{r}
+jpeg("Assessment2 DBSCAN Clustering.jpg")
+
+for(k in 1:5){
+    for(l in k+1:5){
+    plot(dg_train.svd$u[,k],
+         dg_train.svd$u[,l],xlab="",
+         ylab="",
+         col=c("#66666666",rainbow(41))[dbscanres$cluster+1],pch=19,cex=0.5)
+    par(new=TRUE)
+    }
+}
+dev.off()
+```
+
+```{r}
+jpeg("Assessment2 DBSCAN Clustering Eigenvector split.jpg")
+
+for(k in 1:4){
+    for(l in k+1:5){
+    plot(dg_train.svd$u[,k],
+         dg_train.svd$u[,l],xlab=i,
+         ylab=j,
+         col=c("#66666666",rainbow(41))[dbscanres$cluster+1],pch=19,cex=0.5)
+    par(mfrow=c(3,4))
+    }
+}
+dev.off()
+```
+
+
+
+References:
+1. [Data from SecRepo](https://www.secrepo.com)
+2. [Converting categorical variables](https://stackoverflow.com/questions/47922184/convert-categorical-variables-to-numeric-in-r/47923178)
+3. [Adding columns to data frames](https://discuss.analyticsvidhya.com/t/how-to-add-a-column-to-a-data-frame-in-r/3278)
+4. [Finding Unique Values](https://stackoverflow.com/questions/41906878/r-number-of-unique-values-in-a-column-of-data-frame)
+5. [DBSCAN on flowers](https://www.geeksforgeeks.org/dbscan-clustering-in-r-programming/)
+6. [Saving Plots](http://www.sthda.com/english/wiki/creating-and-saving-graphs-r-base-graphs)
+7. [DBSCAN Parameter Estimation](https://en.wikipedia.org/wiki/DBSCAN#Parameter_estimation)
