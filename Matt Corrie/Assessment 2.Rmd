@@ -114,6 +114,8 @@ dg_target_cat <- dg[ran, ncol(dg)]
 dg_test_cat <- dg[-ran, ncol(dg)]
 ```
 
+## SVD
+
 Now we can look at running DBSCAN on our data. We first need to perform PCA to figure out how many principle components to use in DBSCAN.
 
 ```{r}
@@ -143,6 +145,8 @@ plot(dg_train.svd$u[,i],
      col="#33333311",pch=16,cex=1)
 ```
 
+## Finding Parameters for DBSCAN
+
 Eps specifies how close the points should be to each other to form a cluster. If the distance is less than eps, they are considered neighbours. We find this number by finding the 'knee' in the plot below. I have chosen to use 7 neighbours here.
 
 ```{r}
@@ -159,27 +163,138 @@ abline(h=0.0001, col="red")
 
 So we choose h=0.0001 as our limit since this allows us to capture most of the information here. We also need to define our minimum number of points to form a cluster. The recommendation is to use minPts = 2*dim for large data sets to ensure we find significant clusters and avoid noise so this is what we shall choose.
 
+##DBSCAN
+
 Now we finally perform DBSCAN.
 
 ```{r}
-dbscanres = dbscan(dg_train.svd$u[,1:6],eps = 0.0001,minPts = 20)
+minPts = c(20, 25, 30, 35, 40, 45, 50, 75, 100, 125, 150, 175, 200, 225, 250)
+clustercounts = c()
+
+for(val in minPts) {
+  dbscanres = dbscan(dg_train.svd$u[,1:6],eps = 0.0001,minPts = val)
+  clustercounts[val] <- (length(unique(dbscanres$cluster)))
+}
 ```
 
 ```{r}
-dbscanres
+clustercounts
+```
+
+Thus we seem to hit some limiting value at 175 since a minPts of 200 has a higher amount of clusters than a minPts of 175. Since we want ou data to be interpretable we may look at reducing the amount of clusters and therefore the noise. Thus we will use an initial minPts of 175.
+
+The output we get from this isn't very insightful though and leaves a lot to be desired. 
+
+```{r}
+dbscan175 = dbscan(dg_train.svd$u[,1:6],eps = 0.0001,minPts = 175)
+dbscan50 = dbscan(dg_train.svd$u[,1:6],eps=0.0001,minPts = 50)
+dbscan30 = dbscan(dg_train.svd$u[,1:6],eps=0.0001,minPts = 30)
 ```
 
 ```{r}
-jpeg("Assessment2 DBSCAN Clustering.jpg")
+library(cluster)
+```
 
+```{r}
+# trying to calculate the silhouette score of this clustering to see if its valid or not - currently reports Error: Vector memory exhausted (limit reached?) - I've tried looking into work arounds but cant get anything working so I'll leave this for now.
+#ss <- silhouette(dbscanres$cluster, dist(dg_train.svd$u))
+```
+
+## Plotting resulting clusters
+
+```{r}
 for (k in 1:5){
-    a = seq(k,5)
+    a = seq(k+1,6)
     for (l in a){
         if(k==l){next}
         plot(dg_train.svd$u[,k],
             dg_train.svd$u[,l],xlab="",
             ylab="",
-            col=c("#66666666",rainbow(41))[dbscanres$cluster+1],pch=19,cex=0.5)
+            col=c("#66666666",rainbow(41))[dbscan175$cluster+1],pch=19,cex=0.5)
+    par(new=TRUE)
+    }
+}
+```
+
+```{r}
+for (k in 1:5){
+    a = seq(k+1,6)
+    for (l in a){
+        if(k==l){next}
+        plot(dg_train.svd$u[,k],
+            dg_train.svd$u[,l],xlab="",
+            ylab="",
+            col=c("#66666666",rainbow(41))[dbscan50$cluster+1],pch=19,cex=0.5)
+    par(new=TRUE)
+    }
+}
+```
+
+```{r}
+for (k in 1:5){
+    a = seq(k+1,6)
+    for (l in a){
+        if(k==l){next}
+        plot(dg_train.svd$u[,k],
+            dg_train.svd$u[,l],xlab="",
+            ylab="",
+            col=c("#66666666",rainbow(41))[dbscan30$cluster+1],pch=19,cex=0.5)
+    par(new=TRUE)
+    }
+}
+```
+
+```{r}
+for (k in 1:5){
+    a = seq(k+1,6)
+    for (l in a){
+        if(k==l){next}
+        plot(dg_train.svd$u[,k],
+            dg_train.svd$u[,l],xlab="",
+            ylab="",
+            col=c("#66666666",rainbow(41))[dbscan175$cluster+1],pch=19,cex=0.5)
+    }
+}
+```
+
+```{r}
+for (k in 1:5){
+    a = seq(k+1,6)
+    for (l in a){
+        if(k==l){next}
+        plot(dg_train.svd$u[,k],
+            dg_train.svd$u[,l],xlab="",
+            ylab="",
+            col=c("#66666666",rainbow(41))[dbscan50$cluster+1],pch=19,cex=0.5)
+    }
+}
+```
+
+```{r}
+for (k in 1:5){
+    a = seq(k+1,6)
+    for (l in a){
+        if(k==l){next}
+        plot(dg_train.svd$u[,k],
+            dg_train.svd$u[,l],xlab="",
+            ylab="",
+            col=c("#66666666",rainbow(41))[dbscan30$cluster+1],pch=19,cex=0.5)
+    }
+}
+```
+
+
+```{r}
+jpeg("Assessment2 DBSCAN Clustering.jpg")
+
+for (k in 1:5){
+    a = seq(k+1,6)
+    for (l in a){
+        if(k==l){next}
+        plot(dg_train.svd$u[,k],
+            dg_train.svd$u[,l],xlab="",
+            ylab="",
+            col=c("#66666666",rainbow(41))[dbscan30$cluster+1],pch=19,cex=0.5)
     par(new=TRUE)
     }
 }
@@ -188,20 +303,94 @@ dev.off()
 
 ```{r}
 jpeg("Assessment2 DBSCAN Clustering Eigenvector split.jpg")
-op <- par(mfrow=c(3,4))
+op <- par(mfrow=c(5,3))
 for (k in 1:5){
-    a = seq(k,5)
-    for (l in a){
-        if(k==l){next}
-        plot(dg_train.svd$u[,k],
+  a = seq(k+1,6)
+  for (l in a){
+      if(k==l){next}
+      plot(dg_train.svd$u[,k],
             dg_train.svd$u[,l],xlab=k,
             ylab=l,
-            col=c("#66666666",rainbow(41))[dbscanres$cluster+1],pch=19,cex=0.5)
+            col=c("#66666666",rainbow(41))[dbscan30$cluster+1],pch=19,cex=0.5)
     }
 }
 par(op)
 dev.off()
 ```
+
+```{r}
+dg_train.clustered <- data.frame(dg_train)
+
+dg_train.clustered$cluster <- dbscan175$cluster
+
+dg_train.clustered
+```
+
+## M matrix
+
+Now we look at the M matrix produced by Alex that is a sparse matrix showing connections between origin IP's and response IP's.
+
+```{r}
+library(Matrix)
+library(irlba)
+library(Rtsne)
+```
+
+
+```{r}
+So1 <- tapply(mydata$id.orig_h, mydata$id.orig_h)
+De1 <- tapply(mydata$id.resp_h, mydata$id.resp_h)
+Est <- as.matrix(cbind(So1, De1))
+M<- sparseMatrix(i=Est[,1], j=Est[,2])
+```
+
+```{r}
+M.svd = svd(M)
+```
+
+```{r}
+plot(M.svd$d,xlab="Eigenvalue index",ylab="Eigenvalue",log="y")
+plot(M.svd$d,xlab="Eigenvalue index",ylab="Eigenvalue")
+```
+
+From the log axis it looks like we need the first ~100 eigenvalues but using the normal plot, it looks like we an get away with using ~30.
+
+```{r}
+npcsM = 30
+```
+
+```{r}
+testM=kNNdist(M.svd$u[,1:npcsM], k = 7,all=TRUE)
+testminM=apply(testM,1,min)
+```
+
+```{r}
+plot(sort(testminM[testminM>1e-15]),log="y")
+threshholds= c(0.1,0.01,0.001,0.0001,0.00001,0.000001)
+abline(h=c(0.01,0.001,0.0001,0.00001,0.000001))
+abline(h=0.5, col="red")
+```
+
+It looks like we want eps = 0.5 although we dont seem to get a knee in the data so it's hard to pinpoint this.
+
+```{r}
+MminPts = c(200)
+clustercountsM = c()
+
+for(val in MminPts) {
+  dbscanresM = dbscan(dg_train.svd$u[,1:6],eps = 0.5,minPts = val)
+  clustercountsM[val] <- (length(unique(dbscanresM$cluster)))
+}
+```
+
+```{r}
+clustercountsM
+```
+
+```{r}
+dbscan30 = dbscan(N.svd$u[,1:npcsM],eps=0.5,minPts = 30)
+```
+
 
 References:
 
@@ -220,3 +409,9 @@ References:
 7. [DBSCAN Parameter Estimation](https://en.wikipedia.org/wiki/DBSCAN#Parameter_estimation)
 
 8. [Finding the knee in kNNDist](https://www.rdocumentation.org/packages/dbscan/versions/1.1-5/topics/kNNdist)
+
+9. [Silhouette Score introduction](https://medium.com/codesmart/r-series-k-means-clustering-silhouette-794774b46586)
+
+10. [Error with silhouette score](https://stackoverflow.com/questions/51248293/error-vector-memory-exhausted-limit-reached-r-3-5-0-macos)
+
+11. [Silhouette Function](https://www.rdocumentation.org/packages/cluster/versions/2.1.0/topics/silhouette)
