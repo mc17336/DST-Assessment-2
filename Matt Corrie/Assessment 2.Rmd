@@ -63,26 +63,35 @@ head(mydata)
 So we have removed the columns that didn't provide us with any extra information. We will now extract the data we will use for DBSCAN to create clusters. The following code is pulled from Alex's workbook and allows us to pull out 7 of the features to use for DBSCAN and ensures all elements are numeric.
 
 ```{r}
-miss.me <- vector(length = nrow(mydata))
-miss.me <- rep(0, times = nrow(mydata))
-for(i in 1:nrow(mydata)) {
-	if(is.na(mydata$duration[i])) { miss.me[i] <- 1 }
-	}
-str(mydata)
-mydata.good <- as.data.frame(cbind(id.orig_p = mydata$id.orig_p, id.resp_p = mydata$id.resp_p, 
-orig_pkts = mydata$orig_pkts, orig_ip_bytes = mydata$orig_ip_bytes, 
-resp_pkts = mydata$resp_pkts, resp_ip_bytes = mydata$resp_ip_bytes))
-mydata.good<- cbind(mydata.good, miss.me)
-head(mydata.good)
-str(mydata.good) # Should be only ints and nums
-
-for(i in 1:ncol(mydata.good)) { mydata.good[,i] <- as.numeric(mydata.good[,i]) }
-str(mydata.good)		## All should be nums now
-# sum(mydata.good$miss.me)/nrow(mydata.good) ## 82.7% missing
+# miss.me <- vector(length = nrow(mydata))
+# miss.me <- rep(0, times = nrow(mydata))
+# for(i in 1:nrow(mydata)) {
+# 	if(is.na(mydata$duration[i])) { miss.me[i] <- 1 }
+# 	}
+# str(mydata)
+# mydata.good <- as.data.frame(cbind(id.orig_p = mydata$id.orig_p, id.resp_p = mydata$id.resp_p, 
+# orig_pkts = mydata$orig_pkts, orig_ip_bytes = mydata$orig_ip_bytes, 
+# resp_pkts = mydata$resp_pkts, resp_ip_bytes = mydata$resp_ip_bytes))
+# mydata.good<- cbind(mydata.good, miss.me)
+# head(mydata.good)
+# str(mydata.good) # Should be only ints and nums
+# 
+# for(i in 1:ncol(mydata.good)) { mydata.good[,i] <- as.numeric(mydata.good[,i]) }
+# str(mydata.good)		## All should be nums now
+# # sum(mydata.good$miss.me)/nrow(mydata.good) ## 82.7% missing
 
 ```
 
+The data cleansing Alex performed wasn't very conducive to allowing me to impute data so I will use the basis of his but make some small changes.
+```{r}
+mydata.good <- as.data.frame(cbind(id.orig_p = mydata$id.orig_p, id.resp_p = mydata$id.resp_p, orig_pkts = mydata$orig_pkts, orig_ip_bytes = mydata$orig_ip_bytes,resp_pkts = mydata$resp_pkts, resp_ip_bytes = mydata$resp_ip_bytes))
+
+mydata.good
+```
+
+
 I dont want to drop any data that may be important so I'll also use the protocol, connection state and history features in my analysis.
+
 ```{r}
 proto <- as.factor(c(mydata$proto))
 proto <- unclass(proto)
@@ -97,21 +106,42 @@ mydata.good$proto <- proto
 mydata.good$conn_state <- conn_state
 mydata.good$history <- history
 
+for(i in 1:ncol(mydata.good)) { mydata.good[,i] <- as.numeric(mydata.good[,i]) }
+
 mydata.good
 ```
 
 ```{r}
-	## We'll do 10-fold CV and then apply DBSCAN, training on 90%
-dg <- mydata.good
-ran <- sample(1:nrow(dg), 0.9 * nrow(dg))
-nor <-function(x) { (x -min(x))/(max(x)-min(x))   }
-dg_norm <- as.data.frame(lapply(dg, nor))
-	# head(dg_norm)
+data_missing <- as.data.frame(cbind(duration = mydata$duration, orig_bytes = mydata$orig_bytes, resp_bytes = mydata$resp_bytes))
 
-dg_train <- dg_norm[ran,] 	## extract training set
-dg_test <- dg_norm[-ran,]   	## extract testing set
-dg_target_cat <- dg[ran, ncol(dg)]
-dg_test_cat <- dg[-ran, ncol(dg)]
+data_missing
+```
+The below code is Alex's method for 10-fold CV. Since we randomly sampled the intial data set, taking the top 90% of the data frame we now have is still taking a random subset so randomising the data pulled for the training/testing data set wont change the affects. Doing this like this makes the latter mean imputation much simpler.
+
+```{r}
+# 	## We'll do 10-fold CV and then apply DBSCAN, training on 90%
+# dg <- mydata.good
+# ran <- sample(1:nrow(dg), 0.9 * nrow(dg))
+# nor <-function(x) { (x -min(x))/(max(x)-min(x))   }
+# dg_norm <- as.data.frame(lapply(dg, nor))
+# 	# head(dg_norm)
+# 
+# dg_train <- dg_norm[ran,] 	## extract training set
+# dg_test <- dg_norm[-ran,]   	## extract testing set
+# dg_target_cat <- dg[ran, ncol(dg)]
+# dg_test_cat <- dg[-ran, ncol(dg)]
+```
+
+```{r}
+dg_train <- mydata.good[1:round(0.9*nrow(mydata.good)), ]
+dg_test <- mydata.good[tail(1:nrow(mydata.good), 0.1*nrow(mydata.good)), ]
+
+dg_train_missing <- data_missing[1:round(0.9*nrow(data_missing)), ]
+dg_test_missing<- data_missing[tail(1:nrow(data_missing), 0.1*nrow(data_missing)), ]
+
+nor <-function(x){ (x -min(x))/(max(x)-min(x))   }
+dg_train <- as.data.frame(lapply(dg_train, nor))
+dg_test <- as.data.frame(lapply(dg_test, nor))
 ```
 
 ## SVD
@@ -130,10 +160,10 @@ dg_train.svd <- svd(dg_train)
 plot(dg_train.svd$d,xlab="Eigenvalue index",ylab="Eigenvalue",log="y")
 plot(dg_train.svd$d,xlab="Eigenvalue index",ylab="Eigenvalue")
 ```
-Plotting with a log y-axis and a normal y-axis give strikingly different results. The first eigenvector explains most of the variance and the 5 after that seeming explain almost the same amount of variance between them as the first one. I don't think using just the first eigenvalue would provide that much insight and therefore will use 6 of them (this is still reducing dimensionality by almost half).
+Plotting with the different axis gives a striking difference. I'll follow the similar path of using the log axis and thus using 5 principal components since this is where the elbow occurs.
 
 ```{r}
-npcs = 6
+npcs = 5
 ```
 
 We now plot the PCA to visualise the clusters formed here. We're not plotting according to any categorical data i.e. normal vs non-normal so we may not get that much information from this.
@@ -144,6 +174,8 @@ plot(dg_train.svd$u[,i],
      dg_train.svd$u[,j],type="p",
      col="#33333311",pch=16,cex=1)
 ```
+
+As a reflection, all the code in this document was initially run on the same data but with the miss.me column from Alex's code above which creates a drastic difference in the output of svd. It results in us needing an extra principle component and removes the parallelograms from the plot above - therefore I would assume that 'missingness' has a result on clusters and is therefore dependent on which cluster a data point is placed into. Since we are trying to impute the missing data I'm going to use complete case analysis and perform clustering without reference to any missingness.
 
 ## Finding Parameters for DBSCAN
 
@@ -161,7 +193,7 @@ abline(h=c(0.01,0.001,0.0001,0.00001,0.000001))
 abline(h=0.0001, col="red")
 ```
 
-So we choose h=0.0001 as our limit since this allows us to capture most of the information here. We also need to define our minimum number of points to form a cluster. The recommendation is to use minPts = 2*dim for large data sets to ensure we find significant clusters and avoid noise so this is what we shall choose.
+So we choose h=0.0001 as our limit since this allows us to capture most of the information here. We also need to define our minimum number of points to form a cluster. The recommendation is to use minPts = 2*dim for large data sets to ensure we find significant clusters but we'll look at a range to see what outputs we could get. As a reference, Alex is using 15 clusters so we'll aim to reduce our data set down to that many but this is dependent on how that clustering looks.
 
 ##DBSCAN
 
@@ -181,14 +213,13 @@ for(val in minPts) {
 clustercounts
 ```
 
-Thus we seem to hit some limiting value at 175 since a minPts of 200 has a higher amount of clusters than a minPts of 175. Since we want ou data to be interpretable we may look at reducing the amount of clusters and therefore the noise. Thus we will use an initial minPts of 175.
-
-The output we get from this isn't very insightful though and leaves a lot to be desired. 
+The amount of clusters we obtain stabilizes somewhere around 200 min points since we get inflections around this point. We'll visualise them all to see what they look like and give a comparison. To create similarity between this and Alex's clustering I may use 200 min Points but we'll reflect on this after the visualisations.
 
 ```{r}
-dbscan175 = dbscan(dg_train.svd$u[,1:6],eps = 0.0001,minPts = 175)
-dbscan50 = dbscan(dg_train.svd$u[,1:6],eps=0.0001,minPts = 50)
-dbscan30 = dbscan(dg_train.svd$u[,1:6],eps=0.0001,minPts = 30)
+dbscan200 = dbscan(dg_train.svd$u[,1:npcs],eps = 0.0001,minPts = 200)
+dbscan175 = dbscan(dg_train.svd$u[,1:npcs],eps=0.0001,minPts = 175)
+dbscan50 = dbscan(dg_train.svd$u[,1:npcs],eps=0.0001,minPts = 50)
+dbscan30 = dbscan(dg_train.svd$u[,1:npcs],eps=0.0001, minPts = 30)
 ```
 
 ```{r}
@@ -197,56 +228,27 @@ library(cluster)
 
 ```{r}
 # trying to calculate the silhouette score of this clustering to see if its valid or not - currently reports Error: Vector memory exhausted (limit reached?) - I've tried looking into work arounds but cant get anything working so I'll leave this for now.
-#ss <- silhouette(dbscanres$cluster, dist(dg_train.svd$u))
+#ss <- silhouette(dbscan200$cluster, dist(dg_train.svd$u))
 ```
 
 ## Plotting resulting clusters
 
 ```{r}
-for (k in 1:5){
-    a = seq(k+1,6)
+for (k in 1:4){
+    a = seq(k+1,5)
     for (l in a){
         if(k==l){next}
         plot(dg_train.svd$u[,k],
             dg_train.svd$u[,l],xlab="",
             ylab="",
-            col=c("#66666666",rainbow(41))[dbscan175$cluster+1],pch=19,cex=0.5)
-    par(new=TRUE)
+            col=c("#66666666",rainbow(41))[dbscan200$cluster+1],pch=19,cex=0.5)
     }
 }
 ```
 
 ```{r}
-for (k in 1:5){
-    a = seq(k+1,6)
-    for (l in a){
-        if(k==l){next}
-        plot(dg_train.svd$u[,k],
-            dg_train.svd$u[,l],xlab="",
-            ylab="",
-            col=c("#66666666",rainbow(41))[dbscan50$cluster+1],pch=19,cex=0.5)
-    par(new=TRUE)
-    }
-}
-```
-
-```{r}
-for (k in 1:5){
-    a = seq(k+1,6)
-    for (l in a){
-        if(k==l){next}
-        plot(dg_train.svd$u[,k],
-            dg_train.svd$u[,l],xlab="",
-            ylab="",
-            col=c("#66666666",rainbow(41))[dbscan30$cluster+1],pch=19,cex=0.5)
-    par(new=TRUE)
-    }
-}
-```
-
-```{r}
-for (k in 1:5){
-    a = seq(k+1,6)
+for (k in 1:4){
+    a = seq(k+1,5)
     for (l in a){
         if(k==l){next}
         plot(dg_train.svd$u[,k],
@@ -258,8 +260,8 @@ for (k in 1:5){
 ```
 
 ```{r}
-for (k in 1:5){
-    a = seq(k+1,6)
+for (k in 1:4){
+    a = seq(k+1,5)
     for (l in a){
         if(k==l){next}
         plot(dg_train.svd$u[,k],
@@ -271,8 +273,8 @@ for (k in 1:5){
 ```
 
 ```{r}
-for (k in 1:5){
-    a = seq(k+1,6)
+for (k in 1:4){
+    a = seq(k+1,5)
     for (l in a){
         if(k==l){next}
         plot(dg_train.svd$u[,k],
@@ -284,39 +286,38 @@ for (k in 1:5){
 ```
 
 
-```{r}
-jpeg("Assessment2 DBSCAN Clustering.jpg")
-
-for (k in 1:5){
-    a = seq(k+1,6)
-    for (l in a){
-        if(k==l){next}
-        plot(dg_train.svd$u[,k],
-            dg_train.svd$u[,l],xlab="",
-            ylab="",
-            col=c("#66666666",rainbow(41))[dbscan30$cluster+1],pch=19,cex=0.5)
-    par(new=TRUE)
-    }
-}
-dev.off()
-```
+Lets compare the first plot for each of the four clustering's we perfomed.
 
 ```{r}
-jpeg("Assessment2 DBSCAN Clustering Eigenvector split.jpg")
-op <- par(mfrow=c(5,3))
-for (k in 1:5){
-  a = seq(k+1,6)
-  for (l in a){
-      if(k==l){next}
-      plot(dg_train.svd$u[,k],
-            dg_train.svd$u[,l],xlab=k,
-            ylab=l,
+plot(dg_train.svd$u[,1],
+            dg_train.svd$u[,2],xlab="",
+            ylab="", main="minPts = 30, Clusters = 69",
             col=c("#66666666",rainbow(41))[dbscan30$cluster+1],pch=19,cex=0.5)
-    }
-}
-par(op)
-dev.off()
+plot(dg_train.svd$u[,1],
+            dg_train.svd$u[,2],xlab="",
+            ylab="", main="minPts = 50, Clusters = 95",
+            col=c("#66666666",rainbow(41))[dbscan50$cluster+1],pch=19,cex=0.5)
+plot(dg_train.svd$u[,1],
+            dg_train.svd$u[,2],xlab="",
+            ylab="", main="minPts = 175, Clusters = 32",
+            col=c("#66666666",rainbow(41))[dbscan175$cluster+1],pch=19,cex=0.5)
+plot(dg_train.svd$u[,1],
+            dg_train.svd$u[,2],xlab="",
+            ylab="", main="minPts = 200, Clusters = 17",
+            col=c("#66666666",rainbow(41))[dbscan200$cluster+1],pch=19,cex=0.5)
 ```
+
+
+Thus when clustering using larger minPts, we appear to cluster the majority of points into cluster 0 i.e the grey block in the figures. We get a merging of clusters between 30 min points and 200 min points. When performing mean imputation, we can thus either work with a large amount of clusters i.e. when the minPts is small ~30 or fewer clusters but have the majority of points in a single cluster i.e. when the minPts is large ~175.
+
+## Imputation
+
+```{r}
+dbscan175
+```
+
+
+We'll use the clustering with 175 min points. This allows us to keep close to the way that Alex has done it with 15 clusters and ensures that we're likely enough to have data in each cluster to allow us to impute missingness.
 
 ```{r}
 dg_train.clustered <- data.frame(dg_train)
@@ -325,6 +326,66 @@ dg_train.clustered$cluster <- dbscan175$cluster
 
 dg_train.clustered
 ```
+
+```{r}
+dg_train_missing.clustered <- data.frame(dg_train_missing)
+
+dg_train_missing.clustered$cluster <- dbscan200$cluster
+
+dg_train_missing.clustered
+```
+
+We need to check to see if we can perform imputation. If all the values in a cluster have n/a then we wont be able to perform the imputation and therefore may need to consider changing the clustering.
+
+```{r}
+for(i in 0:16){
+  a <- dg_train_missing.clustered[dg_train_missing.clustered$cluster == i,]
+
+  b <- colSums(is.na(a))/nrow(a)
+  
+  if(b["duration"] > 0){
+    print(paste0("Cluster ", i, " has at least 1 non na value(s)"))
+  }
+}
+```
+
+Thus we can definitely use this clustering to impute the data since all clusters contain entries where their values are not NA.
+
+```{r}
+for(i in 0:16){
+  assign(paste0("cluster",i), dg_train_missing.clustered[dg_train_missing.clustered$cluster == i,])
+}
+```
+
+```{r}
+cluster10
+```
+
+```{r}
+cluster10[4,1]
+```
+
+
+```{r}
+missingcols <- c('duration', "orig_bytes", "resp_bytes")
+
+means10 = c()
+for (colname in missingcols){
+  
+  means10 =c(means10, mean(cluster10[[colname]], na.rm = TRUE))
+}
+
+for(i in 1:3){
+  for(j in 1:nrow(cluster10)){
+    if(is.na(cluster10[j,i])){
+      cluster10[j,i] = means10[i]
+    }
+  }
+}
+
+cluster10
+```
+
 
 ## M matrix
 
@@ -374,23 +435,21 @@ abline(h=0.5, col="red")
 It looks like we want eps = 0.5 although we dont seem to get a knee in the data so it's hard to pinpoint this.
 
 ```{r}
-MminPts = c(200)
-clustercountsM = c()
+dbscanresM = dbscan(M.svd$u[,1:npcsM],eps = 0.5)
+```
 
-for(val in MminPts) {
-  dbscanresM = dbscan(dg_train.svd$u[,1:6],eps = 0.5,minPts = val)
-  clustercountsM[val] <- (length(unique(dbscanresM$cluster)))
+```{r}
+for (k in 1:29){
+    a = seq(k+1,30)
+    for (l in a){
+        if(k==l){next}
+        plot(M.svd$u[,k],
+            M.svd$u[,l],xlab="",
+            ylab="",
+            col=c("#66666666",rainbow(41))[dbscanresM$cluster+1],pch=19,cex=0.5)
+    }
 }
 ```
-
-```{r}
-clustercountsM
-```
-
-```{r}
-dbscan30 = dbscan(N.svd$u[,1:npcsM],eps=0.5,minPts = 30)
-```
-
 
 References:
 
@@ -415,3 +474,5 @@ References:
 10. [Error with silhouette score](https://stackoverflow.com/questions/51248293/error-vector-memory-exhausted-limit-reached-r-3-5-0-macos)
 
 11. [Silhouette Function](https://www.rdocumentation.org/packages/cluster/versions/2.1.0/topics/silhouette)
+
+12. [Assign function for creating multiple data frames at once](https://stackoverflow.com/questions/44575110/for-loop-for-creating-multiple-data-frames-and-assigning-values)
