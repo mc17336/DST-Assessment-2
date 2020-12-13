@@ -538,7 +538,35 @@ as.data.frame(diffmeans)
 
 Thus we have a very large difference in the means of our training data and the means of test data and thus we may assume that DBSCAN in this case doesn't perform very well.
 
-Finally, we're going to visualise the data using t-SNE projection. The plots above help us understand the data but are hard to infer anything from. We'll visualise the DBSCAN200 data below.
+The final step is to impute the data into the original data frame. The below function is **VERY** slow (I'm not sure how to optimise it) but it does get the correct output.
+
+```{r}
+for(i in 1:nrow(dg_train_missing.clustered)){
+  cluster <- dg_train_missing.clustered[i,4]
+  for(j in 1:4){
+    dmean <-  means[cluster+1,2]
+    obmean <- means[cluster+1,3]
+    rbmean <- means[cluster+1,4]
+    
+    dg_train_missing.clustered[i,1] <- dmean
+    dg_train_missing.clustered[i,2] <- obmean
+    dg_train_missing.clustered[i,3] <- rbmean
+  }
+}
+```
+
+```{r}
+dg_train$duration <- dg_train_missing.clustered$duration
+dg_train$orig_bytes <- dg_train_missing.clustered$orig_bytes
+dg_train$resp_bytes <- dg_train_missing.clustered$resp_bytes
+```
+
+```{r}
+dg_train
+```
+
+
+Finally, we're going to visualise the clustering using t-SNE projection. The plots above help us understand the data but are hard to infer anything from. We'll visualise the DBSCAN200 data below.
 
 ```{r}
 rtsne_out <- Rtsne(as.matrix(dg_train.clustered), pca = FALSE, verbose = TRUE, check_duplicates = FALSE)
