@@ -13,13 +13,17 @@ First we'll import any libraries we intend to use.
 #install.packages("dbscan")
 #install.packages("cluster")
 #install.packages("reshape")
-#install.packages("ggplot2")
+#install.packages("ggplot2")s
 #install.packages("gridExtra")
 #install.packages("Matrix")
 #install.packages("irlba")
 #install.packages("Rtsne")
 #install.packages("umap")
 #install.packages("uwot")
+#install.packages("imager")
+```
+
+```{r}
 library(dbscan)
 library(cluster)
 library(reshape)
@@ -30,6 +34,7 @@ library(irlba)
 library(Rtsne)
 library(umap)
 library(uwot)
+library(imager)
 ```
 
 We first must import the data.
@@ -497,8 +502,6 @@ So what we find is that the clustering for the test split puts all 20000 data po
 dg_test.clustered <- data.frame(dg_test)
 
 dg_test.clustered$cluster <- dbscan200Test$cluster
-
-dg_test.clustered
 ```
 
 ```{r}
@@ -565,6 +568,14 @@ dg_train$resp_bytes <- dg_train_missing.clustered$resp_bytes
 dg_train
 ```
 
+For reference, the header of Alex's data (which matches the data above) is given below.
+
+```{r}
+im <- load.image("AlexMeans.png")
+plot(im)
+```
+
+
 Finally, we're going to visualise the clustering using t-SNE projection. The main aim of the project was to perform imputation but being able to actually visualise the clusters is important too. The plots above help us understand the data but are hard to infer anything from. We'll visualise the DBSCAN200 data below.
 
 ```{r}
@@ -593,65 +604,11 @@ plot(data.umap, asp = 1, pch = 20,
 
 The difference is startling. Whereas the tsne plot looks fairly jumbled with clusters, with no clusters actually seeming to appear and more scattering within it, the umap plot has very discrete clusters and gives a much better visualisation. We get some scattering between clusters with grey/red points occasionally showing up where we don't necessarily expect them but overall the clusters look very independent. With this in mind, I would presume that the clustering with a minimum points of 200 does produce valid clusters and is a good way to perform imputation based on clusters, despite some of the earlier issues that may still be valid. Additionally, the umap projection is incredibly fast compared to the tsne projection and therefore is computationally more useful.
 
-## M matrix - Not used
-
-**The below code is explained and run through but isn't used in the final report. It served as a good piece of work to help me devlop my skills with DBSCAN so will be left in but isn't particularly insightful.**
-
-Now we look at the M matrix produced by Alex that is a sparse matrix showing connections between origin IP's and response IP's.
+To finish, we'll look at Alex's clustering compared to ours.
 
 ```{r}
-So1 <- tapply(mydata$id.orig_h, mydata$id.orig_h)
-De1 <- tapply(mydata$id.resp_h, mydata$id.resp_h)
-Est <- as.matrix(cbind(So1, De1))
-M<- sparseMatrix(i=Est[,1], j=Est[,2])
-```
-
-```{r}
-M.svd = svd(M)
-```
-
-```{r}
-plot(M.svd$d,xlab="Eigenvalue index",ylab="Eigenvalue",log="y")
-plot(M.svd$d,xlab="Eigenvalue index",ylab="Eigenvalue")
-```
-
-From the log axis it looks like we need the first ~100 eigenvalues but using the normal plot, it looks like we an get away with using ~30.
-
-```{r}
-npcsM = 30
-```
-
-```{r}
-testM=kNNdist(M.svd$u[,1:npcsM], k = 7,all=TRUE)
-testminM=apply(testM,1,min)
-```
-
-```{r}
-plot(sort(testminM[testminM>1e-15]),log="y")
-threshholds= c(0.1,0.01,0.001,0.0001,0.00001,0.000001)
-abline(h=c(0.01,0.001,0.0001,0.00001,0.000001))
-abline(h=0.5, col="red")
-```
-
-It looks like we want eps = 0.5 although we dont seem to get a knee in the data so it's hard to pinpoint this.
-
-```{r}
-dbscanresM = dbscan(M.svd$u[,1:npcsM],eps = 0.5)
-```
-
-We're just going to look at the first 5 pca's since this is awful to look at if we use all 30.
-
-```{r}
-for (k in 1:4){
-    a = seq(k+1,5)
-    for (l in a){
-        if(k==l){next}
-        plot(M.svd$u[,k],
-            M.svd$u[,l],xlab="",
-            ylab="",
-            col=c("#66666666",rainbow(41))[dbscanresM$cluster+1],pch=19,cex=0.5)
-    }
-}
+im <- load.image("Bus_Seat.png")
+plot(im)
 ```
 
 References:
