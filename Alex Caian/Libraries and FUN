@@ -1,0 +1,21 @@
+library(class)			##install.packages("class")
+library(Matrix)			##install.packages("Matrix")
+library(irlba)			##install.packages("irlba")
+library(Rtsne)			##install.packages("Rtsne")
+library(fpc)			##install.packages("fpc")
+library(knitr)			##install.packages("knitr")
+		
+		## This function counts the number of Missing Values for all nums and ints in the dataset - defaulting to our data
+	MissVal <- function(x=data) {
+	if(class(x)!="data.frame") {
+		stop("Invalid input! Please select a dataframe.")
+		}
+	c<- vector(length=ncol(x))
+	c<- as.vector(rep(0, times = ncol(x)))
+	for(j in 1:ncol(x)) {
+		for(i in 1:nrow(x)) {
+			if(is.na(x[i,j])) {
+				c[j] <- c[j] +1 }
+				}
+			}
+	c	}
