@@ -565,8 +565,7 @@ dg_train$resp_bytes <- dg_train_missing.clustered$resp_bytes
 dg_train
 ```
 
-
-Finally, we're going to visualise the clustering using t-SNE projection. The plots above help us understand the data but are hard to infer anything from. We'll visualise the DBSCAN200 data below.
+Finally, we're going to visualise the clustering using t-SNE projection. The main aim of the project was to perform imputation but being able to actually visualise the clusters is important too. The plots above help us understand the data but are hard to infer anything from. We'll visualise the DBSCAN200 data below.
 
 ```{r}
 rtsne_out <- Rtsne(as.matrix(dg_train.clustered), pca = FALSE, verbose = TRUE, check_duplicates = FALSE)
