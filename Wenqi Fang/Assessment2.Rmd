@@ -1,0 +1,370 @@
+---
+title: "ass2"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+read data
+
+```{r}
+conn<-read.csv("D:\\SSS\\MSC\\dst\\data\\ass2\\MAC.csv",header = T)
+conn
+```
+
+
+confirm is there any missingness in each feature and find the proportions of missingness for each protocol
+
+```{r}
+# there is missingness in duration
+mtab1=data.frame(
+    missingduration=is.na(conn[,"duration"]),
+    proto=conn[,"proto"])
+mtab1=table(mtab1)
+(apply(mtab1,2,function(x)x/sum(x)))
+```
+
+
+```{r}
+# there is missingness in orig_bytes
+mtab2=data.frame(
+    missingorigbytes=is.na(conn[,"orig_bytes"]),
+    proto=conn[,"proto"])
+mtab2=table(mtab2)
+(apply(mtab2,2,function(x)x/sum(x)))
+```
+
+
+```{r}
+# there is missingness in resp_bytes
+mtab3=data.frame(
+    missingrespbytes=is.na(conn[,"resp_bytes"]),
+    proto=conn[,"proto"])
+mtab3=table(mtab3)
+(apply(mtab3,2,function(x)x/sum(x)))
+```
+
+
+```{r}
+# the whole local_orig is NA
+mtab4=data.frame(
+    missinglocalorig=is.na(conn[,"local_orig"]),
+    proto=conn[,"proto"])
+mtab4=table(mtab4)
+mtab4
+```
+
+```{r}
+# no missing values in missed_bytes
+mtab5=data.frame(
+    missingmissedbytes=is.na(conn[,"missed_bytes"]),
+    proto=conn[,"proto"])
+mtab5=table(mtab5)
+mtab5
+```
+
+```{r}
+# no missing values in history
+mtab6=data.frame(
+    missinghistory=is.na(conn[,"history"]),
+    proto=conn[,"proto"])
+mtab6=table(mtab6)
+mtab6
+```
+
+```{r}
+# then table the missed_bytes, find that there is only one value--0
+mb=table(conn$missed_bytes)
+mb
+#hi=table(conn$history)
+#hi
+```
+
+
+```{r}
+#conn_state=table(conn$conn_state)
+#conn_state
+```
+
+
+```{r}
+# no missing values in orig_pkts
+mtab7=data.frame(
+    missingorigpkts=is.na(conn[,"orig_pkts"]),
+    proto=conn[,"proto"])
+mtab7=table(mtab7)
+mtab7
+```
+
+
+```{r}
+# no missing values in service
+mtab8=data.frame(
+    missingservice=is.na(conn[,"service"]),  
+    proto=conn[,"proto"])
+mtab8=table(mtab8)
+mtab8
+```
+
+planned to remove the outliers, but once DBSCAN is used, there is no need to do it i guess?
+
+```{r}
+#thist=hist(conn[,"duration"],breaks=101,plot=FALSE)
+#plot(thist$mids,thist$density,log="y",type="b",
+     #xlab="duration",ylab="histogram density")
+#threshold=1200
+#abline(v=threshold,col=2) 
+```
+
+```{r}
+#obhist=hist(conn[,"orig_bytes"],breaks=101,plot=FALSE)
+#plot(obhist$mids,obhist$density,log="y",type="b",
+     #xlab="orig_bytes",ylab="histogram density")
+##threshold=1100
+##abline(v=threshold,col=2) 
+```
+
+
+```{r}
+#rbhist=hist(conn[,"resp_bytes"],breaks=101,plot=FALSE)
+#plot(rbhist$mids,rbhist$density,log="y",type="b",
+     #xlab="orig_bytes",ylab="histogram density")
+#threshold=1.5e+06
+#abline(v=threshold,col=2) 
+```
+
+
+```{r}
+#cshist=hist(conn[,"orig_ip_bytes"],breaks=101,plot=FALSE)
+#plot(cshist$mids,cshist$density,log="y",type="b",
+     #xlab="orig_ip_bytes",ylab="histogram density")
+#threshold=1e+06
+#abline(v=threshold,col=2) 
+```
+
+
+then drop some columns which are useless and may negatively affect the genelization ability.
+
+```{r}
+conn<-conn[,-(1:3)]
+conn
+```
+
+```{r}
+conn<-conn[,-(1:6)]
+conn
+```
+```{r}
+conn<-conn[,-(4:7)]
+conn
+```
+
+then work with svds
+
+```{r}
+conncols=c("orig_ip_bytes","resp_ip_bytes","orig_pkts","resp_pkts")
+
+conn_all_scaled <- apply(conn[,conncols], 2, scale)
+indices=!is.na(conn[,"duration"]) #the rows of NA in other two columns is the same
+completedata=conn[indices,]
+conn_all.svd=svd(conn_all_scaled[indices,])
+```
+
+
+```{r}
+#conn_all.svd
+```
+
+plot the data, then we can find that we need first 3 PCs, thus nPCs=3
+```{r}
+plot(conn_all.svd$d,xlab="Eigenvalue index",ylab="Eigenvalue",log="y")
+```
+
+parameter tuning for DBSCAN
+
+find suitable eps parameter using a k-NN plot for k = dim + 1 to Look for the knee
+
+```{r}
+library("dbscan")
+test=kNNdist(conn_all.svd$u[,1:3], k = 5,all=TRUE)
+testmin=apply(test,1,min)
+```
+
+test what sort of thresholds for the parameter "eps" might be useful
+
+```{r}
+plot(sort(testmin[testmin>1e-8]),log="y")
+threshholds= c(0.01,0.001,0.0001,0.00001,0.000001)
+abline(h=c(0.01,0.001,0.0001,0.00001,0.000001))
+abline(h=0.0001,col="red")  ##choose this
+```
+
+do the clustering with different minPts
+
+
+```{r}
+dbscanres5=dbscan(conn_all.svd$u[,1:3],0.0001,5)
+dbscanres5
+```
+
+```{r}
+dbscanres10=dbscan(conn_all.svd$u[,1:3],0.0001,10)
+dbscanres10
+```
+
+```{r}
+dbscanres20=dbscan(conn_all.svd$u[,1:3],0.0001,20)
+dbscanres20
+```
+
+```{r}
+dbscanres30=dbscan(conn_all.svd$u[,1:3],0.0001,30)
+dbscanres30
+```
+
+```{r}
+dbscanres50=dbscan(conn_all.svd$u[,1:3],0.0001,50)
+dbscanres50
+```
+
+```{r}
+dbscanres70=dbscan(conn_all.svd$u[,1:3],0.0001,70)
+dbscanres70
+```
+
+```{r}
+dbscanres100=dbscan(conn_all.svd$u[,1:3],0.0001,100)
+dbscanres100
+```
+
+```{r}
+dbscanres150=dbscan(conn_all.svd$u[,1:3],0.0001,150)
+dbscanres150
+```
+
+```{r}
+dbscanres200=dbscan(conn_all.svd$u[,1:3],0.0001,200)
+dbscanres200
+```
+
+```{r}
+dbscanres300=dbscan(conn_all.svd$u[,1:3],0.0001,300)
+dbscanres300
+```
+
+```{r}
+dbscanres400=dbscan(conn_all.svd$u[,1:3],0.0001,400)
+dbscanres400
+```
+
+plot the results of clusters
+
+```{r}
+pairs(conn_all.svd$u[,1:3], col = dbscanres5$cluster + 1L)
+```
+
+```{r}
+pairs(conn_all.svd$u[,1:3], col = dbscanres10$cluster + 1L)
+```
+
+```{r}
+pairs(conn_all.svd$u[,1:3], col = dbscanres20$cluster + 1L)
+```
+
+```{r}
+pairs(conn_all.svd$u[,1:3], col = dbscanres30$cluster + 1L)
+```
+
+```{r}
+pairs(conn_all.svd$u[,1:3], col = dbscanres50$cluster + 1L)
+```
+
+```{r}
+pairs(conn_all.svd$u[,1:3], col = dbscanres70$cluster + 1L)
+```
+
+```{r}
+pairs(conn_all.svd$u[,1:3], col = dbscanres100$cluster + 1L)
+```
+
+```{r}
+pairs(conn_all.svd$u[,1:3], col = dbscanres150$cluster + 1L)
+```
+
+```{r}
+pairs(conn_all.svd$u[,1:3], col = dbscanres200$cluster + 1L)
+```
+
+```{r}
+pairs(conn_all.svd$u[,1:3], col = dbscanres300$cluster + 1L)
+```
+
+```{r}
+pairs(conn_all.svd$u[,1:3], col = dbscanres400$cluster + 1L)
+```
+
+then choose the minPts=20 to get 13 clusters which are close to Alex's results.
+
+plot the results in which minPts=20
+
+```{r}
+png(file = "conndbscan20.png")
+op <- par(mfrow=c(3,1))
+    plot(conn_all.svd$u[,1],
+         conn_all.svd$u[,2],xlab="",
+         ylab="",main=paste("K=41 + noise"),
+         col=c("#66666666",rainbow(41))[dbscanres20$cluster+1],pch=19,cex=5)
+    plot(conn_all.svd$u[,1],
+         conn_all.svd$u[,3],xlab="",
+         ylab="",main=paste("K=41 + noise"),
+         col=c("#66666666",rainbow(41))[dbscanres20$cluster+1],pch=19,cex=5)
+    plot(conn_all.svd$u[,2],
+         conn_all.svd$u[,3],xlab="",
+         ylab="",main=paste("K=41 + noise"),
+         col=c("#66666666",rainbow(41))[dbscanres20$cluster+1],pch=19,cex=5)
+par(op)
+dev.off()
+```
+
+
+
+```{r}
+for (i in 0:13) {
+  dfi<-conn[dbscanres20$cluster==i,]
+}
+dfi
+```
+
+
+```{r}
+for (i in 0:13) {
+  dfi[is.na(dfi[,"duration"]),"duration"]=mean(!is.na(dfi[,"duration"]))
+ dfi[is.na(dfi[,"orig_bytes"]),"orig_bytes"]=mean(!is.na(dfi[,"orig_bytes"]))
+  dfi[is.na(dfi[,"resp_bytes"]),"resp_bytes"]=mean(!is.na(dfi[,"resp_bytes"]))
+}
+dfi
+
+```
+
+
+
+```{r}
+#install.packages("Hmisc")
+#library(Hmisc)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
