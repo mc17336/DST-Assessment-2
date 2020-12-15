@@ -541,6 +541,10 @@ as.data.frame(diffmeans)
 
 Thus we have a very large difference in the means of our training data and the means of test data and thus we may assume that DBSCAN in this case doesn't perform very well.
 
+```{r}
+write.csv(means,"mattmeans.csv")
+```
+
 The final step is to impute the data into the original data frame. The below function is **VERY** slow (I'm not sure how to optimise it) but it does get the correct output.
 
 ```{r}
@@ -610,6 +614,8 @@ To finish, we'll look at Alex's clustering compared to ours.
 im <- load.image("Bus_Seat.png")
 plot(im)
 ```
+
+Alex's clustering doesn't have the large majority cluster that ours produces and may be the reason that his results are more accurate. The initialisation of random means and therefore random clusters may allow the k-means algorithm to, in this case, work better than the DBSCAN algorithm. It is also worthwhile noting that Alex doen't get a cluster full of NA's as we do.
 
 References:
 
