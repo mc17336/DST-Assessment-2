@@ -8,7 +8,7 @@ Wenqi Fang
 
 Junbei Chen
 
-This project has a  equity split betwen the project partners.
+This project has a 33/33/33/0 equity split betwen the project partners.
 
 ## Reading order
 
