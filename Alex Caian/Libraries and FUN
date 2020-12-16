@@ -19,3 +19,38 @@ library(knitr)			##install.packages("knitr")
 				}
 			}
 	c	}
+	
+		## This function outputs the performance of each model, and it is used in the '05 - Performance Analysis' part of the project
+			## The default values are specified there, as well as the variables defined in global.
+			
+	Performance <- function(mm=m, ll=l, nn=n) {
+	ml<- cbind(mm,ll)
+	mn<- cbind(mm,nn)
+	ln<- cbind(ll,nn)
+	c1<-cov(ml)
+	c2<-cov(mn)
+	c3<-cov(ln)
+
+	perf1<- mahalanobis(ml, center=FALSE,cov=c1, inverted = TRUE)
+	perf2<- mahalanobis(mn, center=FALSE,cov=c2, inverted = TRUE)
+	perf3<- mahalanobis(ln, center=FALSE,cov=c3, inverted = TRUE)
+	p1<- mean(perf1)
+	p2<- mean(perf2)
+	p3<- mean(perf3)
+
+	Performance_Relations <- rbind(p1,p2,p3)
+	Actual_Correlations <- rbind(k1,k2,k3)
+	Pa <- as.data.frame(cbind(Performance_Relations, Actual_Correlations))
+	names(Pa) <- c("Performance_Relations", "Actual_Correlations")
+
+	p21 <- p2-p1
+	p31 <- p3-p1
+	p32 <- p3-p2
+	k21 <- k2-k1
+	k31 <- k3-k1
+	k32 <- k3-k2
+
+	Pa.a<- as.data.frame(cbind("Performance_Comparison"=c(p21,p31,p32), "Correlations_Comparison"=-c(k21,k31,k32)))
+	print(Pa)
+	print(Pa.a)
+		}
