@@ -16,6 +16,12 @@ All report content is in the directory:
 
 Report/
 
+01 - Introduction
+02 - K-means Clustering
+03 - DBSCAN Clustering 1
+04 - DBSCAN Clustering 2
+05 - Perfomance Analysis
+06 - Conclusions
 
 And should be read in the appropriately numbered order.
 
@@ -29,7 +35,7 @@ Any data that we access from within our reports is found in:
 
 Data/
 
-All individual reports should function without the need for any downloading of data, and will read them directly from this folder of the repository.
+Data should be saved locally where scripts are run to ensure they run properly.
 
 ## Individual Work
 
